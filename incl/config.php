@@ -38,8 +38,7 @@ $SCAN_NET_SETUP = '';
 // 7 = dutch
 // 8 = czech
 // 9 = italian
-//$lang_id = 1;
-$lang_id = 9;
+$lang_id = 1;
 
 
 // set your scanner maximum page size, and a low dpi for previews
@@ -88,7 +87,7 @@ $do_brightness			= true;
 $do_contrast			= true;
 $do_source				= true;
 $do_usr_opt				= false;
-$do_file_name			= false;
+$do_file_name			= true;
 $do_append_pdf			= true;
 $do_append_txt			= true;
 $do_lang_toggle			= true;
@@ -97,7 +96,7 @@ $do_file_delete			= true;	//delete selected files
 $do_file_download		= true;	//download selected files
 $do_file_timezone		= false;
 $do_file_highlight_new	= true;
-
+$do_rotation			= true;
 
 $do_format_pnm			= true;
 $do_format_jpg			= true;
@@ -157,6 +156,7 @@ $action_clean_output=0;
 $action_deletefiles=0;
 $action_preview=0;
 $action_save=0;
+$action_detect=0;
 $first=1;
 
 
@@ -173,7 +173,9 @@ if ($first) {
 
 if(isset($_POST['lang_id'])) $lang_id=$_POST['lang_id'];
 if(isset($_POST['append_file'])) $append_file=$_POST['append_file'];
-
+$rotation = 0;
+if(isset($_POST['rotation'])) $rotation=$_POST['rotation'];
+if(isset($_POST['detect']) or isset($_GET['detect'])) $action_detect=1;
 
 // check what button is clicked
 if(isset($_POST['action_deletefiles'])) $action_deletefiles=1;
@@ -260,22 +262,24 @@ $scanner_ok = false;
 if ($do_test_mode) {
 	$sane_result = "device `plustek:libusb:004:002' is a Plustek OpticPro U24 flatbed scanner";
 } else {
-	$sane_cmd = $SCAN_NET_SETUP . $SCANIMAGE . " --list-devices | grep 'device' | grep -e '\(scanner\|hpaio\|multi-function\)'";
-	$sane_result = exec($sane_cmd);
-	$sane_result;
-	unset($sane_cmd);
+	if ($action_detect == 0 && file_exists("./scanners.cache")) {
+		$sane_result = file_get_contents("./scanners.cache");
+	} else {
+		$sane_cmd = $SCAN_NET_SETUP . $SCANIMAGE . " --formatted-device-list=%d::%m %i --list-devices";
+		$sane_result = exec($sane_cmd);
+		file_put_contents("./scanners.cache", $sane_result);
+		unset($sane_cmd);
+	}
 }
 
 // get scanner name
-$start = strpos($sane_result, "`") + 1;
-$length = strpos($sane_result, "'") - $start;
-$scanner = "\"".substr($sane_result, $start, $length)."\"";
-unset($start);
+$length = strpos($sane_result, "::");
+$scanner = "\"".substr($sane_result, $length)."\"";
 unset($length);
 if ((strlen($scanner) > 2) || $do_test_mode) {
 	$scanner_ok = true;
 }
-$start = strpos($sane_result, "is a ") + 5;
+$start = strpos($sane_result, "::") + 2;
 $length = strlen($sane_result) - $start;
 $scanner_name = str_replace("_", " ", substr($sane_result, $start, $length));
 $scan_output = $scanner_name;
@@ -308,7 +312,7 @@ if($scanner_ok) {
 	} else {
 		// build configuration from scanimage output
 		// scanimage call and gather output
-		$sane_cmd = $SCANIMAGE . " -h -d$scanner";
+		$sane_cmd = $SCANIMAGE . " -h --device-name=" . $scanner
 		$sane_result = `$sane_cmd`;
 		if ($do_test_mode) {
 			$sane_result = "	 --resolution 50..2450dpi [75]\n	 --mode Lineart|Color|Gray [Color]\n	 --contrast 0..100 [50]\n	 --brightness -100..100 [0]\n	 --source Flatbed|ADF [Flatbed]";
@@ -327,7 +331,7 @@ if($scanner_ok) {
 			$brightness_line = end($sane_result_brightness);
 			if(strpos($brightness_line, 'inactive') === false) {
 				$brightness_supported = true;
-				$brightness_minmax = explode('..', preg_replace('/^.*--brightness ([-|0-9..]*)[ \t].*$/iU','$1', $brightness_line));
+				$brightness_minmax = explode('..', preg_replace('/^.*--brightness ([-|0-9..]*)%.*$/iU','$1', $brightness_line));
 				$brightness_minimum = $brightness_minmax[0];
 				$brightness_maximum = $brightness_minmax[1];
 				unset($brightness_minmax);
@@ -350,7 +354,7 @@ if($scanner_ok) {
 			$contrast_line = end($sane_result_contrast);
 			if(strpos($contrast_line, 'inactive') === false) {
 				$contrast_supported = true;
-				$contrast_minmax = explode('..', preg_replace('/^.*--contrast ([-|0-9..]*)[ \t].*$/iU','$1', $contrast_line));
+				$contrast_minmax = explode('..', preg_replace('/^.*--contrast ([-|0-9..]*)%.*$/iU','$1', $contrast_line));
 				$contrast_minimum = $contrast_minmax[0];
 				$contrast_maximum = $contrast_minmax[1];
 				unset($contrast_minmax);
@@ -472,6 +476,8 @@ if($scanner_ok) {
 		$contrast = $contrast_default; //set to scanimage default when not set or out of range
 	}
 	unset($contrast_supported);
+
+	if($rotation < 0 || $rotation > 360) { $rotation = 0; }
 	
 	$do_source = $do_source && $source_supported;
 	unset($source_supported);

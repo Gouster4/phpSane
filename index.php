@@ -276,6 +276,36 @@ if ($do_source){
 				this.value = $("#contrast_slider").val();
 			}
 		});
+
+	   //rotation menu option
+	   $("#rotation_slider").noUiSlider({
+			   range: [<?php echo "0,360" ?>]
+			   ,start: <?php echo $rotation . "\r\n" ?>
+			   ,step: 1
+			   ,handles: 1
+			   ,slide: function(){
+					   var values = $(this).val();
+					   if (values == 360) {
+							   $("#rotationauto").css("display", "inline-block");
+							   $("#rotationunit").css("display", "none");
+							   $("#rotation").css("display", "none");
+					   } else {
+							   $("#rotation").css("display", "inline-block");
+							   $("#rotationunit").css("display", "inline-block");
+							   $("#rotationauto").css("display", "none");                                      
+					   }
+					   $("#rotation").val(values);
+			   }
+	   });
+	   $("#rotation").change(function() {
+			   var rotationValue = parseInt(this.value);
+			   if(isNaN(rotationValue)) {
+					   this.value = $("#rotation_slider").val();
+			   } else {
+					   $("#rotation_slider").val(rotationValue);
+					   this.value = $("#rotation_slider").val();
+			   }
+	   });
 ////////////////////////////////////////////////////////
 
 
@@ -395,11 +425,7 @@ if ($do_source){
 <?php
 //extend scanned document with another page only if multiple source is not activated or source is "Flatbed" (default value)
 	if ($action_save && (($format == "pdf" && $do_append_pdf) || ($format == "txt" && $do_append_txt )) && (!($do_source) || $source == $source_default ) ) {
-		echo "
-		if(confirm(\"{$lang[$lang_id][50]}\")) {
-			$('#append_file').val('{$file_save}');
-			$('#tab_menu_buttons_accept').click();
-		}";
+		echo "$('#append_file').val('{$file_save}');";
 	}
  ?>
 
@@ -484,7 +510,9 @@ if ($do_source){
 				<input type=hidden name='resolution' value='".$resolution."'>
 				<input type=hidden name='brightness' value='".$brightness."'>
 				<input type=hidden name='contrast' value='".$contrast."'>
+				<input type=hidden name='rotation' value='".$rotation."'>
 				<input type=hidden name='source' value='".$source."'>
+
 	<table>
 		<tr>
 			<td id='tab_menu_error_text'>".$lang[$lang_id][33]."</td>
